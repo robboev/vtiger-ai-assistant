@@ -1,0 +1,6 @@
+vendor/
+node_modules/
+*.zip
+.env
+config.php
+.mcp.json

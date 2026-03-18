@@ -1,0 +1,14 @@
+{
+  "name": "vtiger-ai-assistant-cli",
+  "version": "0.1.0",
+  "description": "CLI agent that builds new AI Assistant actions by reading vtiger code",
+  "main": "builder.js",
+  "scripts": {
+    "build": "node builder.js",
+    "poll": "node poller.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "mysql2": "^3.9.0"
+  }
+}
