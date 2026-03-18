@@ -1,32 +1,24 @@
 #!/bin/bash
-# Build vtiger-ai-assistant module zip
-
+# Build AIAssistant module package (vtiger-compatible zip)
+# Same pattern as RTLTheme: files at root level in zip
 set -e
 
 VERSION=$(grep '<version>' module-src/manifest.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
-OUTPUT="vtiger-ai-assistant-v${VERSION}.zip"
-BUILDDIR="/tmp/ai-assistant-build"
+OUTPUT="/tmp/AIAssistant-v${VERSION}.zip"
+SRC="module-src"
 
-echo "Building AIAssistant v${VERSION}..."
+if [ ! -d "$SRC" ]; then
+    echo "ERROR: $SRC directory not found"
+    exit 1
+fi
 
-# Clean
-rm -rf "$BUILDDIR"
-mkdir -p "$BUILDDIR/AIAssistant"
+rm -f "$OUTPUT"
 
-# Copy module files
-cp module-src/manifest.xml "$BUILDDIR/AIAssistant/"
-cp -r module-src/modules "$BUILDDIR/AIAssistant/"
-cp -r module-src/layouts "$BUILDDIR/AIAssistant/"
+cd "$SRC"
+zip -r "$OUTPUT" . -x '*.git*' -x '*.DS_Store' -x 'modules/AIAssistant/config_ai.php'
+cd ..
 
-# Remove config files that shouldn't be in the zip
-rm -f "$BUILDDIR/AIAssistant/modules/AIAssistant/config_ai.php"
-
-# Build zip
-cd "$BUILDDIR"
-zip -r "/tmp/$OUTPUT" AIAssistant/ -x "*.DS_Store" "*__MACOSX*"
-
-# Clean
-rm -rf "$BUILDDIR"
-
-echo "Built: /tmp/$OUTPUT"
-echo "Install via vtiger Settings > Module Manager > Import Module"
+echo "Built: $OUTPUT"
+ls -lh "$OUTPUT"
+echo ""
+echo "Install via: vtiger Settings > Module Manager > Import Module"

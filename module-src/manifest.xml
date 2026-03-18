@@ -2,79 +2,33 @@
 <module>
     <name>AIAssistant</name>
     <label>AI Assistant</label>
-    <type>extension</type>
+    <parent>Tools</parent>
     <version>0.1.0</version>
-
+    <type>module</type>
+    <isexportable>true</isexportable>
     <dependencies>
-        <vtiger_version>7.0</vtiger_version>
-        <vtiger_max_version>8.99</vtiger_max_version>
+        <vtiger_version>7.0.0</vtiger_version>
+        <vtiger_max_version>8.*</vtiger_max_version>
     </dependencies>
+    <license>
+        <inline>
+            <![CDATA[
+AI Assistant Module for vTiger CRM v0.1.0
+Self-evolving AI assistant with hybrid API+CLI architecture.
+            ]]>
+        </inline>
+    </license>
+    <description>
+        <![CDATA[
+AI Assistant v0.1.0
 
-    <tables>
-        <table>
-            <name>vtiger_ai_conversations</name>
-            <sql>
-                <![CDATA[
-                CREATE TABLE IF NOT EXISTS vtiger_ai_conversations (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    tenant_id VARCHAR(64) DEFAULT 'default',
-                    user_id INT NOT NULL,
-                    role ENUM('user','assistant') NOT NULL,
-                    message TEXT NOT NULL,
-                    tool_calls JSON,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_tenant_user (tenant_id, user_id),
-                    INDEX idx_created (created_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                ]]>
-            </sql>
-        </table>
-        <table>
-            <name>vtiger_ai_audit_log</name>
-            <sql>
-                <![CDATA[
-                CREATE TABLE IF NOT EXISTS vtiger_ai_audit_log (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    tenant_id VARCHAR(64) DEFAULT 'default',
-                    user_id INT NOT NULL,
-                    action_name VARCHAR(128) NOT NULL,
-                    params JSON,
-                    result JSON,
-                    status ENUM('success','error','rejected') NOT NULL,
-                    execution_time_ms INT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_tenant (tenant_id),
-                    INDEX idx_action (action_name),
-                    INDEX idx_created (created_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                ]]>
-            </sql>
-        </table>
-        <table>
-            <name>vtiger_ai_action_registry</name>
-            <sql>
-                <![CDATA[
-                CREATE TABLE IF NOT EXISTS vtiger_ai_action_registry (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    action_name VARCHAR(128) UNIQUE NOT NULL,
-                    source ENUM('builtin','generated') DEFAULT 'builtin',
-                    status ENUM('active','disabled','pending_review') DEFAULT 'active',
-                    generated_by VARCHAR(255),
-                    approved_by INT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    INDEX idx_status (status)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                ]]>
-            </sql>
-        </table>
-    </tables>
+AI-powered CRM assistant that helps users:
+- Import leads and contacts
+- Create workflows and automations
+- Search and manage records
+- Get CRM statistics and insights
 
-    <events>
-        <event>
-            <eventname>vtiger.view.head.after</eventname>
-            <classname>AIAssistantHandler</classname>
-            <filename>modules/AIAssistant/handlers/AIAssistantHandler.php</filename>
-        </event>
-    </events>
+Self-evolving: automatically builds new capabilities from user requests.
+        ]]>
+    </description>
 </module>
