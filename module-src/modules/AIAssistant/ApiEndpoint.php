@@ -3,9 +3,10 @@
 require_once __DIR__ . '/ActionRegistry.php';
 require_once __DIR__ . '/ActionExecutor.php';
 require_once __DIR__ . '/AgentQueue.php';
+require_once __DIR__ . '/LLMProvider.php';
 
 /**
- * Chat API endpoint. Handles user messages, sends to Claude API with
+ * Chat API endpoint. Handles user messages, sends to LLM provider with
  * available tools, executes tool calls, returns responses.
  */
 class AIAssistant_ApiEndpoint {
@@ -19,6 +20,9 @@ class AIAssistant_ApiEndpoint {
     /** @var AIAssistant_AgentQueue */
     private $queue;
 
+    /** @var AIAssistant_LLMProvider */
+    private $llm;
+
     /** @var PearDatabase */
     private $db;
 
@@ -28,21 +32,14 @@ class AIAssistant_ApiEndpoint {
     /** @var int */
     private $userId;
 
-    /** @var string Claude API key */
-    private $apiKey;
-
-    /** @var string Claude model to use */
-    private $model;
-
     /** Max conversation history to send */
     const MAX_HISTORY = 20;
 
-    public function __construct(string $tenantId, int $userId, string $apiKey, string $model = 'claude-sonnet-4-6') {
+    public function __construct(string $tenantId, int $userId, array $config) {
         $this->tenantId = $tenantId;
         $this->userId = $userId;
-        $this->apiKey = $apiKey;
-        $this->model = $model;
         $this->db = PearDatabase::getInstance();
+        $this->llm = new AIAssistant_LLMProvider($config);
         $this->registry = new AIAssistant_ActionRegistry();
         $this->executor = new AIAssistant_ActionExecutor($tenantId, $userId);
         $this->queue = new AIAssistant_AgentQueue($tenantId);
@@ -73,8 +70,11 @@ class AIAssistant_ApiEndpoint {
         // Get conversation history
         $history = $this->getConversationHistory();
 
-        // Call Claude API
-        $response = $this->callClaude($systemPrompt, $history);
+        // Get tool definitions
+        $tools = $this->registry->getToolDefinitions();
+
+        // Call LLM
+        $response = $this->llm->chat($systemPrompt, $history, $tools);
 
         if ($response === null) {
             $msg = "I'm having trouble connecting right now. Please try again in a moment.";
@@ -92,7 +92,7 @@ class AIAssistant_ApiEndpoint {
     }
 
     /**
-     * Build the system prompt with CRM context and available tools.
+     * Build the system prompt with CRM context.
      */
     private function buildSystemPrompt(array $crmContext): string {
         $prompt = file_get_contents(__DIR__ . '/system_prompt.txt');
@@ -110,32 +110,40 @@ class AIAssistant_ApiEndpoint {
     private function getCrmContext(): array {
         $context = [
             'tenant_id' => $this->tenantId,
+            'user_id' => $this->userId,
+            'today' => date('Y-m-d'),
             'modules' => [],
             'workflows_count' => 0,
-            'recent_activity' => [],
         ];
 
+        // Get current user info
+        global $current_user;
+        if ($current_user) {
+            $context['user_name'] = $current_user->column_fields['first_name'] . ' ' . $current_user->column_fields['last_name'];
+            $context['user_language'] = $current_user->language ?? 'en_us';
+        }
+
         // Get module record counts
-        $modules = ['Leads', 'Contacts', 'Accounts', 'Potentials', 'HelpDesk', 'Products'];
+        $modules = ['Leads', 'Contacts', 'Accounts', 'Potentials', 'HelpDesk', 'Products', 'Quotes', 'Invoice', 'SalesOrder', 'Campaigns'];
         foreach ($modules as $module) {
             try {
                 $moduleModel = Vtiger_Module_Model::getInstance($module);
                 if ($moduleModel) {
-                    $result = $this->db->pquery(
-                        "SELECT COUNT(*) as cnt FROM {$moduleModel->get('basetable')} WHERE 1",
-                        []
-                    );
-                    $count = $result ? (int)$this->db->query_result($result, 0, 'cnt') : 0;
-                    $context['modules'][$module] = $count;
+                    $baseTable = $moduleModel->get('basetable');
+                    if ($baseTable) {
+                        $result = $this->db->pquery("SELECT COUNT(*) as cnt FROM $baseTable", []);
+                        $count = $result ? (int)$this->db->query_result($result, 0, 'cnt') : 0;
+                        $context['modules'][$module] = $count;
+                    }
                 }
             } catch (Exception $e) {
-                $context['modules'][$module] = 'N/A';
+                // module not installed, skip
             }
         }
 
         // Get workflow count
         try {
-            $result = $this->db->pquery("SELECT COUNT(*) as cnt FROM com_vtiger_workflows", []);
+            $result = $this->db->pquery("SELECT COUNT(*) as cnt FROM com_vtiger_workflows WHERE defaultworkflow = 0", []);
             $context['workflows_count'] = $result ? (int)$this->db->query_result($result, 0, 'cnt') : 0;
         } catch (Exception $e) {
             // ignore
@@ -165,71 +173,16 @@ class AIAssistant_ApiEndpoint {
             }
         }
 
-        // Reverse to chronological order
         return array_reverse($messages);
     }
 
     /**
-     * Call Claude API with tools.
-     */
-    private function callClaude(string $systemPrompt, array $messages): ?array {
-        $tools = $this->registry->getToolDefinitions();
-
-        // Convert tool definitions to Claude API format
-        $claudeTools = array_map(function($tool) {
-            return [
-                'name' => $tool['name'],
-                'description' => $tool['description'],
-                'input_schema' => [
-                    'type' => 'object',
-                    'properties' => $tool['parameters']['properties'] ?? [],
-                    'required' => $tool['parameters']['required'] ?? [],
-                ],
-            ];
-        }, $tools);
-
-        $payload = [
-            'model' => $this->model,
-            'max_tokens' => 1024,
-            'system' => $systemPrompt,
-            'messages' => $messages,
-        ];
-
-        if (!empty($claudeTools)) {
-            $payload['tools'] = $claudeTools;
-        }
-
-        $ch = curl_init('https://api.anthropic.com/v1/messages');
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'x-api-key: ' . $this->apiKey,
-                'anthropic-version: 2023-06-01',
-            ],
-            CURLOPT_POSTFIELDS => json_encode($payload),
-            CURLOPT_TIMEOUT => 30,
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode !== 200 || $response === false) {
-            error_log("AIAssistant Claude API error: HTTP $httpCode, response: $response");
-            return null;
-        }
-
-        return json_decode($response, true);
-    }
-
-    /**
-     * Process Claude response - execute tool calls if present.
+     * Process LLM response - execute tool calls if present.
      */
     private function processResponse(array $response): array {
         $textParts = [];
         $toolCalls = [];
+        $uiAction = null;
 
         foreach ($response['content'] ?? [] as $block) {
             if ($block['type'] === 'text') {
@@ -239,7 +192,6 @@ class AIAssistant_ApiEndpoint {
                 $toolInput = $block['input'] ?? [];
 
                 if ($this->registry->hasAction($toolName)) {
-                    // Known action - execute it
                     $action = $this->registry->getAction($toolName);
                     $result = $this->executor->execute($action, $toolInput);
                     $toolCalls[] = [
@@ -248,29 +200,35 @@ class AIAssistant_ApiEndpoint {
                         'result' => $result,
                     ];
 
+                    // Check for UI action in result
+                    if (!empty($result['ui_action'])) {
+                        $uiAction = $result['ui_action'];
+                    }
+
                     if ($result['success']) {
                         $textParts[] = $result['message'] ?? "Done.";
                     } else {
                         $textParts[] = "Failed: " . ($result['message'] ?? 'Unknown error');
                     }
                 } else {
-                    // Unknown action - queue for CLI agent
-                    $queueResult = $this->queue->enqueue(
-                        $toolName,
-                        $toolInput,
-                        $this->userId
-                    );
+                    $queueResult = $this->queue->enqueue($toolName, $toolInput, $this->userId);
                     $textParts[] = "I don't have that capability yet, but I've queued it for building. " .
                                    "I'll notify you when it's ready. (Queue #" . ($queueResult['id'] ?? '?') . ")";
                 }
             }
         }
 
-        return [
+        $result = [
             'role' => 'assistant',
             'content' => implode("\n\n", $textParts),
             'tool_calls' => !empty($toolCalls) ? $toolCalls : null,
         ];
+
+        if ($uiAction) {
+            $result['ui_action'] = $uiAction;
+        }
+
+        return $result;
     }
 
     /**

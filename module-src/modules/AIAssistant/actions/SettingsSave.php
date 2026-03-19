@@ -67,8 +67,10 @@ class AIAssistant_SettingsSave_Action extends Vtiger_Action_Controller {
     }
 
     private function saveConfig(Vtiger_Request $request) {
+        $provider = $request->get('provider') ?: 'anthropic';
         $apiKey = $request->get('api_key');
-        $model = $request->get('model') ?: 'claude-sonnet-4-6';
+        $model = $request->get('model') ?: 'claude-haiku-4-5-20251001';
+        $apiBaseUrl = $request->get('api_base_url') ?: '';
         $rateLimit = (int)($request->get('rate_limit') ?: 100);
         $enabled = $request->get('enabled') ? true : false;
 
@@ -77,12 +79,15 @@ class AIAssistant_SettingsSave_Action extends Vtiger_Action_Controller {
         // Read existing config
         $config = file_exists($configFile) ? include($configFile) : [];
 
+        $config['provider'] = $provider;
+
         // Only update API key if provided (don't clear existing)
         if (!empty($apiKey)) {
-            $config['anthropic_api_key'] = $apiKey;
+            $config['api_key'] = $apiKey;
         }
 
         $config['model'] = $model;
+        $config['api_base_url'] = $apiBaseUrl;
         $config['rate_limit'] = $rateLimit;
         $config['enabled'] = $enabled;
 

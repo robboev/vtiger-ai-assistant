@@ -26,12 +26,21 @@ class AIAssistant_Chat_Action extends Vtiger_Action_Controller {
             $tenantId = TENANT_ID;
         }
 
-        // Get API key from module config
-        $apiKey = self::getApiKey();
-        if (!$apiKey) {
+        // Load config
+        $config = self::getConfig();
+        if (empty($config['api_key']) && ($config['provider'] ?? 'anthropic') !== 'ollama') {
             $this->sendJsonResponse([
                 'role' => 'assistant',
-                'content' => 'AI Assistant is not configured. Please ask your administrator to set the API key.',
+                'content' => 'AI Assistant is not configured. Please ask your administrator to set the API key in Settings.',
+            ]);
+            return;
+        }
+
+        // Check if enabled
+        if (!($config['enabled'] ?? true)) {
+            $this->sendJsonResponse([
+                'role' => 'assistant',
+                'content' => 'AI Assistant is currently disabled.',
             ]);
             return;
         }
@@ -49,7 +58,7 @@ class AIAssistant_Chat_Action extends Vtiger_Action_Controller {
         }
 
         // Process through API endpoint
-        $endpoint = new AIAssistant_ApiEndpoint($tenantId, $userId, $apiKey);
+        $endpoint = new AIAssistant_ApiEndpoint($tenantId, $userId, $config);
         $response = $endpoint->handleMessage($message);
 
         $this->sendJsonResponse($response);
@@ -60,12 +69,11 @@ class AIAssistant_Chat_Action extends Vtiger_Action_Controller {
         echo json_encode($data);
     }
 
-    private static function getApiKey(): ?string {
-        $configFile = __DIR__ . '/../../config_ai.php';
+    private static function getConfig(): array {
+        $configFile = dirname(__DIR__) . '/config_ai.php';
         if (file_exists($configFile)) {
-            $config = include $configFile;
-            return $config['anthropic_api_key'] ?? null;
+            return include($configFile);
         }
-        return null;
+        return [];
     }
 }

@@ -36,34 +36,77 @@
                 <div class="row">
                     <div class="col-lg-6">
                         <div class="panel panel-default">
-                            <div class="panel-heading"><strong>API Configuration</strong></div>
+                            <div class="panel-heading"><strong>LLM Provider Configuration</strong></div>
                             <div class="panel-body">
                                 <div class="form-group">
-                                    <label>Anthropic API Key</label>
+                                    <label>Provider</label>
+                                    <select name="provider" id="ai-provider-select" class="form-control">
+                                        <option value="anthropic" {if $CURRENT_PROVIDER eq 'anthropic'}selected{/if}>
+                                            Anthropic (Claude) — best tool_use support
+                                        </option>
+                                        <option value="openai" {if $CURRENT_PROVIDER eq 'openai'}selected{/if}>
+                                            OpenAI (GPT) — widely available
+                                        </option>
+                                        <option value="ollama" {if $CURRENT_PROVIDER eq 'ollama'}selected{/if}>
+                                            Ollama (Local) — free, runs on your server
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" id="ai-apikey-group">
+                                    <label>API Key</label>
                                     <input type="password" name="api_key" class="form-control"
-                                           placeholder="{if $API_KEY_SET}(key is set — leave blank to keep){else}sk-ant-xxx{/if}">
-                                    <small class="text-muted">
+                                           placeholder="{if $API_KEY_SET}(key is set — leave blank to keep){else}Enter API key{/if}">
+                                    <small class="text-muted" id="ai-apikey-help">
                                         {if $API_KEY_SET}
                                             API key is configured. Leave blank to keep current key.
                                         {else}
-                                            Get your API key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+                                            Required for Anthropic and OpenAI providers.
                                         {/if}
                                     </small>
                                 </div>
 
                                 <div class="form-group">
-                                    <label>Claude Model</label>
-                                    <select name="model" class="form-control">
-                                        <option value="claude-haiku-4-5-20251001" {if $CURRENT_MODEL eq 'claude-haiku-4-5-20251001'}selected{/if}>
-                                            Claude Haiku 4.5 (fastest, cheapest)
-                                        </option>
-                                        <option value="claude-sonnet-4-6" {if $CURRENT_MODEL eq 'claude-sonnet-4-6'}selected{/if}>
-                                            Claude Sonnet 4.6 (balanced)
-                                        </option>
-                                        <option value="claude-opus-4-6" {if $CURRENT_MODEL eq 'claude-opus-4-6'}selected{/if}>
-                                            Claude Opus 4.6 (most capable)
-                                        </option>
+                                    <label>Model</label>
+                                    <select name="model" id="ai-model-select" class="form-control">
+                                        <optgroup label="Anthropic (Claude)" class="ai-models-anthropic">
+                                            <option value="claude-haiku-4-5-20251001" {if $CURRENT_MODEL eq 'claude-haiku-4-5-20251001'}selected{/if}>
+                                                Haiku 4.5 — fastest, ~$0.001/request
+                                            </option>
+                                            <option value="claude-sonnet-4-6" {if $CURRENT_MODEL eq 'claude-sonnet-4-6'}selected{/if}>
+                                                Sonnet 4.6 — balanced, ~$0.01/request
+                                            </option>
+                                            <option value="claude-opus-4-6" {if $CURRENT_MODEL eq 'claude-opus-4-6'}selected{/if}>
+                                                Opus 4.6 — most capable, ~$0.05/request
+                                            </option>
+                                        </optgroup>
+                                        <optgroup label="OpenAI (GPT)" class="ai-models-openai">
+                                            <option value="gpt-4o-mini" {if $CURRENT_MODEL eq 'gpt-4o-mini'}selected{/if}>
+                                                GPT-4o Mini — cheapest, ~$0.001/request
+                                            </option>
+                                            <option value="gpt-4o" {if $CURRENT_MODEL eq 'gpt-4o'}selected{/if}>
+                                                GPT-4o — balanced, ~$0.01/request
+                                            </option>
+                                        </optgroup>
+                                        <optgroup label="Ollama (Local/Free)" class="ai-models-ollama">
+                                            <option value="llama3" {if $CURRENT_MODEL eq 'llama3'}selected{/if}>
+                                                Llama 3 — good general purpose
+                                            </option>
+                                            <option value="mistral" {if $CURRENT_MODEL eq 'mistral'}selected{/if}>
+                                                Mistral — fast, efficient
+                                            </option>
+                                            <option value="mixtral" {if $CURRENT_MODEL eq 'mixtral'}selected{/if}>
+                                                Mixtral — best local quality
+                                            </option>
+                                        </optgroup>
                                     </select>
+                                </div>
+
+                                <div class="form-group" id="ai-baseurl-group">
+                                    <label>API Base URL <small class="text-muted">(optional, auto-detected per provider)</small></label>
+                                    <input type="text" name="api_base_url" class="form-control"
+                                           value="{$API_BASE_URL}"
+                                           placeholder="Leave blank for default">
                                 </div>
 
                                 <div class="form-group">
@@ -90,9 +133,19 @@
                             <div class="panel-body">
                                 <table class="table table-condensed">
                                     <tr>
+                                        <td>Provider</td>
+                                        <td><span class="label label-default">{$CURRENT_PROVIDER}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Model</td>
+                                        <td><span class="label label-default">{$CURRENT_MODEL}</span></td>
+                                    </tr>
+                                    <tr>
                                         <td>API Key</td>
                                         <td>
-                                            {if $API_KEY_SET}
+                                            {if $CURRENT_PROVIDER eq 'ollama'}
+                                                <span class="label label-success">Not needed (local)</span>
+                                            {elseif $API_KEY_SET}
                                                 <span class="label label-success">Configured</span>
                                             {else}
                                                 <span class="label label-danger">Not Set</span>
@@ -108,6 +161,14 @@
                                         <td><span class="label label-info">{count($ACTIONS)}</span></td>
                                     </tr>
                                 </table>
+
+                                <div class="alert alert-info" style="margin-top:15px; font-size:12px;">
+                                    <strong>Cost Guide:</strong><br>
+                                    Ollama = free (needs server with 8GB+ RAM)<br>
+                                    GPT-4o Mini / Haiku = ~$0.001/request (~$1/1000 chats)<br>
+                                    Sonnet / GPT-4o = ~$0.01/request (~$10/1000 chats)<br>
+                                    Opus = ~$0.05/request (use for CLI agent only)
+                                </div>
                             </div>
                         </div>
                     </div>

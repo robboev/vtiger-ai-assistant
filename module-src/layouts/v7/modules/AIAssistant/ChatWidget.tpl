@@ -285,6 +285,11 @@
         .then(function(data) {
             removeTyping(typingEl);
             appendMessage('assistant', data.content || 'Something went wrong.');
+
+            // Handle UI actions (navigate, open record, etc.)
+            if (data.ui_action) {
+                handleUiAction(data.ui_action);
+            }
         })
         .catch(function(err) {
             removeTyping(typingEl);
@@ -333,6 +338,37 @@
 
     function removeTyping(el) {
         if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+
+    // Handle UI actions returned by the assistant
+    function handleUiAction(action) {
+        switch (action.type) {
+            case 'navigate':
+                // Brief delay so user sees the message before navigating
+                setTimeout(function() {
+                    window.location.href = action.url;
+                }, 1500);
+                break;
+
+            case 'open_modal':
+                // Future: show data in a popup
+                break;
+
+            case 'highlight':
+                // Future: highlight a UI element
+                if (action.selector) {
+                    var el = document.querySelector(action.selector);
+                    if (el) {
+                        el.style.outline = '3px solid #1a73e8';
+                        el.style.outlineOffset = '2px';
+                        setTimeout(function() {
+                            el.style.outline = '';
+                            el.style.outlineOffset = '';
+                        }, 5000);
+                    }
+                }
+                break;
+        }
     }
 })();
 </script>

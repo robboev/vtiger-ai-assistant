@@ -22,13 +22,13 @@ class AIAssistant_Settings_View extends Settings_Vtiger_Index_View {
             }
         }
 
-        // Get built-in actions (from filesystem, not in registry)
+        // Get built-in actions (from filesystem)
         $actionsDir = __DIR__ . '/../actions';
         $builtinFiles = glob($actionsDir . '/*.php');
         $builtinActions = [];
         foreach ($builtinFiles as $file) {
             $name = basename($file, '.php');
-            if ($name === 'Base' || $name === 'Chat') continue;
+            if (in_array($name, ['Base', 'Chat', 'SettingsSave', 'Uninstall'])) continue;
             $builtinActions[] = $name;
         }
 
@@ -60,7 +60,7 @@ class AIAssistant_Settings_View extends Settings_Vtiger_Index_View {
             }
         }
 
-        // Check if config exists
+        // Load current config
         $configFile = __DIR__ . '/../config_ai.php';
         $configExists = file_exists($configFile);
         $currentConfig = $configExists ? include($configFile) : [];
@@ -71,8 +71,10 @@ class AIAssistant_Settings_View extends Settings_Vtiger_Index_View {
         $viewer->assign('AUDIT_LOG', $auditLog);
         $viewer->assign('QUEUE', $queue);
         $viewer->assign('CONFIG_EXISTS', $configExists);
-        $viewer->assign('API_KEY_SET', !empty($currentConfig['anthropic_api_key'] ?? ''));
-        $viewer->assign('CURRENT_MODEL', $currentConfig['model'] ?? 'claude-sonnet-4-6');
+        $viewer->assign('CURRENT_PROVIDER', $currentConfig['provider'] ?? 'anthropic');
+        $viewer->assign('API_KEY_SET', !empty($currentConfig['api_key'] ?? ''));
+        $viewer->assign('CURRENT_MODEL', $currentConfig['model'] ?? 'claude-haiku-4-5-20251001');
+        $viewer->assign('API_BASE_URL', $currentConfig['api_base_url'] ?? '');
         $viewer->assign('RATE_LIMIT', $currentConfig['rate_limit'] ?? 100);
         $viewer->assign('MODULE', 'AIAssistant');
 
