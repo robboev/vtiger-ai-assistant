@@ -1,15 +1,12 @@
 <?php
 /*+**********************************************************************************
  * AI Assistant Event Handler
- * Injects the chat widget into all vtiger pages
+ * Registers a JS loader that injects the chat widget on every page
  ************************************************************************************/
 
 class AIAssistantHandler extends VTEventHandler {
 
     public function handleEvent($eventName, $data) {
-        // This handler is registered but the widget injection
-        // happens via the Smarty template included in Header.tpl
-        // or via the view postProcess method.
-        // Kept for future event-driven hooks.
+        // Not used — widget injection happens via footer include
     }
 }

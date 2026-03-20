@@ -11,6 +11,12 @@ class AIAssistant extends CRMEntity {
     const VERSION = '0.1.0';
     const MODULE_NAME = 'AIAssistant';
 
+    /** Footer.tpl marker for clean uninstall */
+    const FOOTER_MARKER = '<!-- AIAssistant Widget Loader -->';
+
+    /** Path to Footer.tpl */
+    const FOOTER_TPL = 'layouts/v7/modules/Vtiger/Footer.tpl';
+
     // CRMEntity required properties
     public $table_name = 'vtiger_aiassistant';
     public $table_index = 'aiassistantid';
@@ -43,8 +49,10 @@ class AIAssistant extends CRMEntity {
                 $this->onUninstall();
                 break;
             case 'module.enabled':
+                $this->patchFooter();
                 break;
             case 'module.disabled':
+                $this->unpatchFooter();
                 break;
         }
     }
@@ -111,12 +119,73 @@ class AIAssistant extends CRMEntity {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", array());
 
         self::log('All tables created successfully');
+
+        // Patch Footer.tpl to load chat widget
+        $this->patchFooter();
     }
 
     private function onUninstall() {
+        // Remove Footer.tpl patch
+        $this->unpatchFooter();
+
         // Keep tables — they contain valuable data.
-        // Admin can drop manually if needed.
-        self::log('Module uninstalled (tables preserved)');
+        self::log('Module uninstalled (tables preserved, footer restored)');
+    }
+
+    /**
+     * Add chat widget loader script to Footer.tpl
+     */
+    private function patchFooter() {
+        $file = self::FOOTER_TPL;
+
+        if (!file_exists($file)) {
+            self::log("Footer.tpl not found at $file");
+            return;
+        }
+
+        $content = file_get_contents($file);
+
+        // Idempotent: skip if already patched
+        if (strpos($content, self::FOOTER_MARKER) !== false) {
+            self::log('Footer.tpl already patched');
+            return;
+        }
+
+        // Insert before </body>
+        $scriptTag = "\n" . self::FOOTER_MARKER . "\n"
+            . "<script src=\"modules/AIAssistant/resources/ChatWidgetLoader.js\"></script>\n";
+
+        $content = str_replace('</body>', $scriptTag . '</body>', $content);
+
+        file_put_contents($file, $content);
+        self::log('Footer.tpl patched - chat widget loader added');
+    }
+
+    /**
+     * Remove chat widget loader from Footer.tpl
+     */
+    private function unpatchFooter() {
+        $file = self::FOOTER_TPL;
+
+        if (!file_exists($file)) {
+            return;
+        }
+
+        $content = file_get_contents($file);
+
+        if (strpos($content, self::FOOTER_MARKER) === false) {
+            return; // not patched
+        }
+
+        // Remove the marker line and the script tag line
+        $content = preg_replace(
+            '/\n' . preg_quote(self::FOOTER_MARKER, '/') . '\n<script[^>]*ChatWidgetLoader\.js[^>]*><\/script>\n/',
+            '',
+            $content
+        );
+
+        file_put_contents($file, $content);
+        self::log('Footer.tpl restored - chat widget loader removed');
     }
 
     /**
