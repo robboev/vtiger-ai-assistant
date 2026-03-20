@@ -4,7 +4,7 @@
  * Admin settings view for AI Assistant.
  * Shows config, action registry, audit log, and agent queue.
  */
-class AIAssistant_Settings_View extends Settings_Vtiger_Index_View {
+class AIAssistant_Settings_View extends Vtiger_Index_View {
 
     public function process(Vtiger_Request $request) {
         $viewer = $this->getViewer($request);
