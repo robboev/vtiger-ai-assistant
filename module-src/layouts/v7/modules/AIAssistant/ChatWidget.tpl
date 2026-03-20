@@ -1,7 +1,7 @@
-{* AI Assistant Chat Widget — Fun animated robot with chat panel *}
+<!-- AI Assistant Chat Widget -->
 
 <div id="ai-assistant-widget">
-    {* === INTRO CHARACTER (shows on first load) === *}
+    <!-- INTRO CHARACTER (shows on first load) -->
     <div id="aia-intro" class="aia-intro">
         <div class="aia-speech-bubble">
             <span id="aia-greeting-text"></span>
@@ -30,16 +30,15 @@
         </div>
     </div>
 
-    {* === FLOATING BUBBLE BUTTON === *}
+    <!-- FLOATING BUBBLE BUTTON -->
     <button id="aia-toggle" class="aia-toggle" style="display:none;" title="AI Assistant">
         <div class="aia-toggle-face">
             <div class="aia-mini-eye"></div>
             <div class="aia-mini-eye"></div>
         </div>
-        <div class="aia-toggle-pulse"></div>
     </button>
 
-    {* === CHAT PANEL === *}
+    <!-- CHAT PANEL -->
     <div id="aia-panel" class="aia-panel" style="display:none;">
         <div class="aia-panel-header">
             <div class="aia-header-bot">
@@ -116,7 +115,7 @@
    ============================ */
 #ai-assistant-widget .aia-intro {
     position: absolute;
-    bottom: 0;
+    bottom: 70px;
     right: 0;
     display: flex;
     flex-direction: column;
@@ -402,32 +401,16 @@
     45% { transform: scaleY(0.1); }
 }
 
-#ai-assistant-widget .aia-toggle-pulse {
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
-    border-radius: 50%;
-    border: 3px solid var(--aia-coral);
-    opacity: 0;
-    animation: aia-pulse-ring 3s ease-out infinite;
-}
-
-@keyframes aia-pulse-ring {
-    0% { transform: scale(1); opacity: 0.5; }
-    100% { transform: scale(1.5); opacity: 0; }
-}
-
 /* ============================
    CHAT PANEL
    ============================ */
 #ai-assistant-widget .aia-panel {
-    position: absolute;
-    bottom: 72px;
-    right: 0;
+    position: fixed;
+    bottom: 94px;
+    right: 24px;
     width: 380px;
-    height: 520px;
+    max-height: calc(100vh - 110px);
+    height: 480px;
     background: var(--aia-white);
     border-radius: 20px;
     box-shadow: var(--aia-shadow);
@@ -692,13 +675,18 @@
     left: 24px;
 }
 
-[dir="rtl"] #ai-assistant-widget .aia-panel {
+[dir="rtl"] #ai-assistant-widget .aia-intro {
     right: auto;
     left: 0;
 }
 
 [dir="rtl"] #ai-assistant-widget .aia-speech-bubble {
     border-radius: 18px 18px 4px 18px;
+}
+
+[dir="rtl"] #ai-assistant-widget .aia-panel {
+    right: auto;
+    left: 24px;
 }
 
 [dir="rtl"] #ai-assistant-widget .aia-msg-user {
